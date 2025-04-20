@@ -1,143 +1,61 @@
-getgenv().LoadedESP = getgenv().LoadedESP or {
-    Settings = {
-        MasterSwitch = false,
-        HealthBar = true,
-        ChamsVisibleOnly = false
-    }
-}
-
+-- 2dbox.lua
 local ESP = {}
-ESP.Objects = {}
+ESP.Enabled = false
 
-function ESP:UpdateSettings(settingsTable)
-    for key, value in pairs(settingsTable) do
-        getgenv().LoadedESP.Settings[key] = value
-        print("Updated ESP Setting:", key, "=", value)
-    end
-end
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
-local function Draw(type)
-    local obj = Drawing.new(type)
-    obj.Visible = false
-    return obj
-end
-
-local function CreateCornerBox()
+local function CreateBox(target)
+    local box = Drawing.new("Square")
+    box.Thickness = 2
+    box.Color = Color3.fromRGB(255, 0, 0)
+    box.Filled = false
+    box.Visible = false
     return {
-        LineTL = Draw("Line"),
-        LineTR = Draw("Line"),
-        LineBL = Draw("Line"),
-        LineBR = Draw("Line"),
-        HealthBar = Draw("Line"),
-        HealthBack = Draw("Line"),
-        Name = Draw("Text"),
-        Distance = Draw("Text"),
-        Chams = Instance.new("Highlight")
+        Target = target,
+        Drawing = box
     }
 end
 
-function ESP:New(Player)
-    local Box = CreateCornerBox()
-    Box.Chams.Parent = game:GetService("CoreGui")
-    Box.Name.Size = 13
-    Box.Name.Center = true
-    Box.Name.Outline = true
-    Box.Distance.Size = 13
-    Box.Distance.Center = true
-    Box.Distance.Outline = true
+ESP.Boxes = {}
 
-    local function Update()
-        local settings = getgenv().LoadedESP.Settings
-
-        if not settings.MasterSwitch then
-            for _,v in pairs(Box) do
-                if typeof(v) == "Instance" then v.Enabled = false else v.Visible = false end
-            end
-            return
-        end
-
-        local Character = Player.Character
-        local HRP = Character and Character:FindFirstChild("HumanoidRootPart")
-        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-
-        if HRP and Humanoid and Humanoid.Health > 0 then
-            local Pos, OnScreen = workspace.CurrentCamera:WorldToViewportPoint(HRP.Position)
-            if OnScreen then
-                local scale = math.clamp(15 / (HRP.Position - workspace.CurrentCamera.CFrame.Position).Magnitude, 2, 5)
-                local size = Vector2.new(35 * scale, 55 * scale)
-                local topLeft = Vector2.new(Pos.X - size.X / 2, Pos.Y - size.Y / 2)
-                local bottomRight = Vector2.new(Pos.X + size.X / 2, Pos.Y + size.Y / 2)
-                local lineLength = size.X * 0.2
-
-                Box.LineTL.From = topLeft
-                Box.LineTL.To = Vector2.new(topLeft.X + lineLength, topLeft.Y)
-                Box.LineTL.Color = Color3.new(0,1,0)
-                Box.LineTL.Visible = true
-
-                Box.LineBL.From = topLeft
-                Box.LineBL.To = Vector2.new(topLeft.X, topLeft.Y + lineLength)
-                Box.LineBL.Color = Color3.new(0,1,0)
-                Box.LineBL.Visible = true
-
-                Box.LineTR.From = Vector2.new(bottomRight.X - lineLength, topLeft.Y)
-                Box.LineTR.To = Vector2.new(bottomRight.X, topLeft.Y)
-                Box.LineTR.Color = Color3.new(0,1,0)
-                Box.LineTR.Visible = true
-
-                Box.LineBR.From = Vector2.new(bottomRight.X, bottomRight.Y - lineLength)
-                Box.LineBR.To = bottomRight
-                Box.LineBR.Color = Color3.new(0,1,0)
-                Box.LineBR.Visible = true
-
-                if settings.HealthBar then
-                    local health = Humanoid.Health / Humanoid.MaxHealth
-                    local barHeight = size.Y * health
-
-                    Box.HealthBack.From = Vector2.new(topLeft.X - 6, bottomRight.Y)
-                    Box.HealthBack.To = Vector2.new(topLeft.X - 6, topLeft.Y)
-                    Box.HealthBack.Color = Color3.new(0,0,0)
-                    Box.HealthBack.Thickness = 2
-                    Box.HealthBack.Visible = true
-
-                    Box.HealthBar.From = Vector2.new(topLeft.X - 6, bottomRight.Y)
-                    Box.HealthBar.To = Vector2.new(topLeft.X - 6, bottomRight.Y - barHeight)
-                    Box.HealthBar.Color = Color3.fromRGB(0,255,0)
-                    Box.HealthBar.Thickness = 2
-                    Box.HealthBar.Visible = true
-                else
-                    Box.HealthBack.Visible = false
-                    Box.HealthBar.Visible = false
-                end
-
-                Box.Name.Text = Player.Name
-                Box.Name.Position = Vector2.new(Pos.X, topLeft.Y - 14)
-                Box.Name.Color = Color3.new(1,1,1)
-                Box.Name.Visible = true
-
-                local distance = math.floor((HRP.Position - workspace.CurrentCamera.CFrame.Position).Magnitude)
-                Box.Distance.Text = tostring(distance) .. "m"
-                Box.Distance.Position = Vector2.new(Pos.X, bottomRight.Y + 2)
-                Box.Distance.Color = Color3.new(1,1,1)
-                Box.Distance.Visible = true
-
-                Box.Chams.Adornee = Character
-                Box.Chams.FillColor = Color3.fromRGB(119, 120, 255)
-                Box.Chams.OutlineColor = Color3.fromRGB(119, 120, 255)
-                Box.Chams.Enabled = true
-                Box.Chams.DepthMode = settings.ChamsVisibleOnly and Enum.HighlightDepthMode.Occluded or Enum.HighlightDepthMode.AlwaysOnTop
-            else
-                for _,v in pairs(Box) do
-                    if typeof(v) == "Instance" then v.Enabled = false else v.Visible = false end
-                end
-            end
-        else
-            for _,v in pairs(Box) do
-                if typeof(v) == "Instance" then v.Enabled = false else v.Visible = false end
-            end
+function ESP.SetEnabled(state)
+    ESP.Enabled = state
+    if not state then
+        for _, box in pairs(ESP.Boxes) do
+            box.Drawing.Visible = false
         end
     end
-
-    game:GetService("RunService").RenderStepped:Connect(Update)
 end
+
+function ESP:Update()
+    if not ESP.Enabled then return end
+
+    for i, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local vector, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+
+            if not ESP.Boxes[player] then
+                ESP.Boxes[player] = CreateBox(player)
+            end
+
+            local box = ESP.Boxes[player]
+            box.Drawing.Visible = onScreen and ESP.Enabled
+
+            if onScreen then
+                box.Drawing.Size = Vector2.new(60, 100) -- width, height
+                box.Drawing.Position = Vector2.new(vector.X - 30, vector.Y - 50) -- center it on the player
+            end
+        elseif ESP.Boxes[player] then
+            ESP.Boxes[player].Drawing.Visible = false
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    ESP:Update()
+end)
 
 return ESP
