@@ -106,5 +106,4 @@ function ESP:Stop()
         if box then box.Visible = false end
     end
 end
-
 return ESP
