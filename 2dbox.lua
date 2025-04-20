@@ -1,20 +1,18 @@
--- Eclipse.wtf Style 2D Box ESP — Proper Settings Connection for UI Toggles
-
-getgenv().LoadedESP = getgenv().LoadedESP or {}
-
-local ESP = {}
-
-ESP.Settings = {
-    MasterSwitch = false,
-    HealthBar = true,
-    ChamsVisibleOnly = false
+getgenv().LoadedESP = getgenv().LoadedESP or {
+    Settings = {
+        MasterSwitch = false,
+        HealthBar = true,
+        ChamsVisibleOnly = false
+    }
 }
 
-function ESP:UpdateSettings(data)
-    for k, v in pairs(data) do
-        if ESP.Settings[k] ~= nil then
-            ESP.Settings[k] = v
-        end
+local ESP = {}
+ESP.Objects = {}
+
+function ESP:UpdateSettings(settingsTable)
+    for key, value in pairs(settingsTable) do
+        getgenv().LoadedESP.Settings[key] = value
+        print("Updated ESP Setting:", key, "=", value)
     end
 end
 
@@ -49,7 +47,9 @@ function ESP:New(Player)
     Box.Distance.Outline = true
 
     local function Update()
-        if not ESP.Settings.MasterSwitch then
+        local settings = getgenv().LoadedESP.Settings
+
+        if not settings.MasterSwitch then
             for _,v in pairs(Box) do
                 if typeof(v) == "Instance" then v.Enabled = false else v.Visible = false end
             end
@@ -72,30 +72,27 @@ function ESP:New(Player)
                 Box.LineTL.From = topLeft
                 Box.LineTL.To = Vector2.new(topLeft.X + lineLength, topLeft.Y)
                 Box.LineTL.Color = Color3.new(0,1,0)
-                Box.LineTL.Thickness = 1
                 Box.LineTL.Visible = true
 
                 Box.LineBL.From = topLeft
                 Box.LineBL.To = Vector2.new(topLeft.X, topLeft.Y + lineLength)
                 Box.LineBL.Color = Color3.new(0,1,0)
-                Box.LineBL.Thickness = 1
                 Box.LineBL.Visible = true
 
                 Box.LineTR.From = Vector2.new(bottomRight.X - lineLength, topLeft.Y)
                 Box.LineTR.To = Vector2.new(bottomRight.X, topLeft.Y)
                 Box.LineTR.Color = Color3.new(0,1,0)
-                Box.LineTR.Thickness = 1
                 Box.LineTR.Visible = true
 
                 Box.LineBR.From = Vector2.new(bottomRight.X, bottomRight.Y - lineLength)
                 Box.LineBR.To = bottomRight
                 Box.LineBR.Color = Color3.new(0,1,0)
-                Box.LineBR.Thickness = 1
                 Box.LineBR.Visible = true
 
-                if ESP.Settings.HealthBar then
+                if settings.HealthBar then
                     local health = Humanoid.Health / Humanoid.MaxHealth
                     local barHeight = size.Y * health
+
                     Box.HealthBack.From = Vector2.new(topLeft.X - 6, bottomRight.Y)
                     Box.HealthBack.To = Vector2.new(topLeft.X - 6, topLeft.Y)
                     Box.HealthBack.Color = Color3.new(0,0,0)
@@ -127,7 +124,7 @@ function ESP:New(Player)
                 Box.Chams.FillColor = Color3.fromRGB(119, 120, 255)
                 Box.Chams.OutlineColor = Color3.fromRGB(119, 120, 255)
                 Box.Chams.Enabled = true
-                Box.Chams.DepthMode = ESP.Settings.ChamsVisibleOnly and Enum.HighlightDepthMode.Occluded or Enum.HighlightDepthMode.AlwaysOnTop
+                Box.Chams.DepthMode = settings.ChamsVisibleOnly and Enum.HighlightDepthMode.Occluded or Enum.HighlightDepthMode.AlwaysOnTop
             else
                 for _,v in pairs(Box) do
                     if typeof(v) == "Instance" then v.Enabled = false else v.Visible = false end
@@ -143,5 +140,4 @@ function ESP:New(Player)
     game:GetService("RunService").RenderStepped:Connect(Update)
 end
 
-getgenv().LoadedESP = ESP
 return ESP
