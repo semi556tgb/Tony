@@ -1,106 +1,159 @@
 -- 2dbox.lua
+-- Silentware ESP Drawing Logic - Clean Version
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-
-local ESP = {
-    Enabled = false,
-    MaxDistance = 300,
-    Drawing = {
-        Boxes = {
-            Full = { Enabled = false, RGB = Color3.fromRGB(255, 255, 255) },
-            Filled = { Enabled = false, RGB = Color3.fromRGB(0, 0, 0), Transparency = 0.75 }
-        },
-        Healthbar = { Enabled = false, Width = 2.5 }
+-- Global table to hold ESP data
+getgenv().LoadedESP = {
+    Settings = {
+        MasterSwitch = false,
+        BoxFill = false,
+        HealthBar = false
     },
-    Objects = {}
+    Drawing = {}
 }
 
-local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
+local ESP = getgenv().LoadedESP
 
-local function CreateBox()
-    local box = Drawing.new("Square")
-    box.Visible = false
-    box.Color = ESP.Drawing.Boxes.Full.RGB
-    box.Thickness = 1
-    box.Filled = false
-    return box
+-- Create Drawing objects table
+function CreateESP(player)
+    if ESP.Drawing[player] then return end
+
+    ESP.Drawing[player] = {
+        BoxOutline = Drawing.new("Square"),
+        Box = Drawing.new("Square"),
+        BoxFill = Drawing.new("Square"),
+        HealthbarOutline = Drawing.new("Square"),
+        Healthbar = Drawing.new("Square"),
+        NameTag = Drawing.new("Text")
+    }
+
+    -- Setup appearance
+    ESP.Drawing[player].BoxOutline.Thickness = 3
+    ESP.Drawing[player].BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+
+    ESP.Drawing[player].Box.Thickness = 1
+    ESP.Drawing[player].Box.Color = Color3.fromRGB(255, 255, 255)
+
+    ESP.Drawing[player].BoxFill.Color = Color3.fromRGB(0, 0, 0)
+    ESP.Drawing[player].BoxFill.Transparency = 0.6
+
+    ESP.Drawing[player].HealthbarOutline.Color = Color3.fromRGB(0, 0, 0)
+    ESP.Drawing[player].HealthbarOutline.Thickness = 1
+
+    ESP.Drawing[player].Healthbar.Color = Color3.fromRGB(0, 255, 0)
+    ESP.Drawing[player].Healthbar.Thickness = 1
+
+    ESP.Drawing[player].NameTag.Center = true
+    ESP.Drawing[player].NameTag.Outline = true
+    ESP.Drawing[player].NameTag.Color = Color3.fromRGB(255, 255, 255)
 end
 
-local function CreateHealthbar()
-    local bar = Drawing.new("Square")
-    bar.Visible = false
-    bar.Color = Color3.fromRGB(0, 255, 0)
-    bar.Thickness = 1
-    bar.Filled = true
-    return bar
-end
-
-local function ClearESP()
-    for _, obj in pairs(ESP.Objects) do
-        if obj and obj.Remove then
+-- Hide or remove ESP drawings
+function RemoveESP(player)
+    if ESP.Drawing[player] then
+        for _, obj in pairs(ESP.Drawing[player]) do
             obj:Remove()
         end
+        ESP.Drawing[player] = nil
     end
-    ESP.Objects = {}
 end
 
-RunService.RenderStepped:Connect(function()
-    if not ESP.Enabled or not ESP.Drawing.Boxes.Full.Enabled then
-        ClearESP()
+-- Update ESP for one player
+function UpdateESP(player, position2D, size, health, maxHealth)
+    local objects = ESP.Drawing[player]
+    if not objects then return end
+
+    if not ESP.Settings.MasterSwitch then
+        for _, obj in pairs(objects) do
+            obj.Visible = false
+        end
         return
     end
 
-    ClearESP()
+    -- Box outline
+    objects.BoxOutline.Size = size + Vector2.new(3, 3)
+    objects.BoxOutline.Position = position2D - Vector2.new(1.5, 1.5)
+    objects.BoxOutline.Visible = true
 
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
-            local hrp = plr.Character.HumanoidRootPart
-            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+    -- Main box
+    objects.Box.Size = size
+    objects.Box.Position = position2D
+    objects.Box.Visible = true
 
-            local distance = (Camera.CFrame.Position - hrp.Position).Magnitude
-            if onScreen and distance <= ESP.MaxDistance then
-                local scale = 1 / pos.Z * 100
-                local sizeX = math.clamp(30 * scale, 1, 300)
-                local sizeY = sizeX * 1.5
+    -- Box fill
+    if ESP.Settings.BoxFill then
+        objects.BoxFill.Size = size
+        objects.BoxFill.Position = position2D
+        objects.BoxFill.Visible = true
+    else
+        objects.BoxFill.Visible = false
+    end
 
-                -- Box
-                local box = CreateBox()
-                box.Size = Vector2.new(sizeX, sizeY)
-                box.Position = Vector2.new(pos.X - sizeX / 2, pos.Y - sizeY / 2)
-                box.Color = ESP.Drawing.Boxes.Full.RGB
-                box.Visible = true
+    -- Health bar
+    if ESP.Settings.HealthBar then
+        local healthPercent = math.clamp(health / maxHealth, 0, 1)
+        local barHeight = size.Y * healthPercent
 
-                -- Box Fill
-                if ESP.Drawing.Boxes.Filled.Enabled then
-                    box.Filled = true
-                    box.Color = ESP.Drawing.Boxes.Filled.RGB
-                    box.Transparency = ESP.Drawing.Boxes.Filled.Transparency
+        objects.HealthbarOutline.Size = Vector2.new(4, size.Y + 2)
+        objects.HealthbarOutline.Position = position2D - Vector2.new(6, 1)
+        objects.HealthbarOutline.Visible = true
+
+        objects.Healthbar.Size = Vector2.new(2, barHeight)
+        objects.Healthbar.Position = Vector2.new(
+            position2D.X - 5,
+            position2D.Y + (size.Y - barHeight)
+        )
+        objects.Healthbar.Color = Color3.fromRGB(
+            255 * (1 - healthPercent),
+            255 * healthPercent,
+            0
+        )
+        objects.Healthbar.Visible = true
+    else
+        objects.Healthbar.Visible = false
+        objects.HealthbarOutline.Visible = false
+    end
+
+    -- Name tag
+    objects.NameTag.Position = Vector2.new(position2D.X + size.X / 2, position2D.Y - 15)
+    objects.NameTag.Text = player.Name
+    objects.NameTag.Size = 13
+    objects.NameTag.Visible = true
+end
+
+-- Clean up for players who leave
+game.Players.PlayerRemoving:Connect(function(player)
+    RemoveESP(player)
+end)
+
+-- Your main ESP loop
+task.spawn(function()
+    while task.wait() do
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = player.Character.HumanoidRootPart
+                local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+
+                if onScreen then
+                    CreateESP(player)
+                    -- Example dummy sizes, you can compute based on distance.
+                    local size = Vector2.new(70, 110)
+                    local topLeft = Vector2.new(pos.X - size.X / 2, pos.Y - size.Y / 2)
+
+                    local humanoid = player.Character:FindFirstChildWhichIsA("Humanoid")
+                    local health = humanoid and humanoid.Health or 0
+                    local maxHealth = humanoid and humanoid.MaxHealth or 100
+
+                    UpdateESP(player, topLeft, size, health, maxHealth)
+                else
+                    if ESP.Drawing[player] then
+                        for _, obj in pairs(ESP.Drawing[player]) do
+                            obj.Visible = false
+                        end
+                    end
                 end
-
-                table.insert(ESP.Objects, box)
-
-                -- Health Bar
-                if ESP.Drawing.Healthbar.Enabled and humanoid and humanoid.Health > 0 then
-                    local healthPercent = humanoid.Health / humanoid.MaxHealth
-                    local healthbar = CreateHealthbar()
-
-                    local barHeight = sizeY * healthPercent
-                    healthbar.Size = Vector2.new(ESP.Drawing.Healthbar.Width, barHeight)
-                    healthbar.Position = Vector2.new(
-                        pos.X - sizeX / 2 - 6,
-                        pos.Y + sizeY / 2 - barHeight
-                    )
-                    healthbar.Visible = true
-
-                    table.insert(ESP.Objects, healthbar)
-                end
+            else
+                RemoveESP(player)
             end
         end
     end
 end)
-
-return ESP
