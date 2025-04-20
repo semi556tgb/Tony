@@ -1,98 +1,101 @@
--- 2desp.lua - Clean Player ESP Script
-
--- Settings
-local ESP_ENABLED = true
-local ESP_FILL_COLOR = Color3.fromRGB(0, 170, 255)      -- Light blue
-local ESP_OUTLINE_COLOR = Color3.fromRGB(255, 255, 255) -- White
-local ESP_FILL_TRANSPARENCY = 0.75
-local ESP_OUTLINE_TRANSPARENCY = 0
+-- Clean 2D Box ESP for Roblox
+-- Author: You
+-- Version: Inspired by the style you posted
 
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
--- Table to store ESP elements
-local ESPObjects = {}
+local ESP_Enabled = true
+local ESP_Objects = {}
 
--- Function to create ESP for a character
-local function CreateESP(player)
-    if player == LocalPlayer then return end  -- Skip local player
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+function CreateESPBox(player)
+    if player == LocalPlayer then return end
+    if ESP_Objects[player] then return end
 
-    -- Check if already exists
-    if ESPObjects[player] then return end
+    local box = Drawing.new("Square")
+    box.Visible = false
+    box.Color = Color3.fromRGB(255, 0, 0) -- Red Box
+    box.Thickness = 2
+    box.Filled = false
 
-    -- Create Highlight
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = player.Character
-    highlight.FillColor = ESP_FILL_COLOR
-    highlight.FillTransparency = ESP_FILL_TRANSPARENCY
-    highlight.OutlineColor = ESP_OUTLINE_COLOR
-    highlight.OutlineTransparency = ESP_OUTLINE_TRANSPARENCY
-    highlight.Parent = game.CoreGui
+    local name = Drawing.new("Text")
+    name.Visible = false
+    name.Color = Color3.fromRGB(255, 255, 255) -- White Text
+    name.Center = true
+    name.Outline = true
+    name.Size = 14
+    name.Font = 2 -- Monospace
 
-    -- Create Name Tag
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP_Name"
-    billboard.Adornee = player.Character:FindFirstChild("HumanoidRootPart")
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = game.CoreGui
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = player.Name
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextStrokeTransparency = 0.5
-    label.Font = Enum.Font.SourceSansBold
-    label.TextScaled = true
-    label.Parent = billboard
-
-    ESPObjects[player] = {highlight = highlight, nameTag = billboard}
+    ESP_Objects[player] = {Box = box, Name = name}
 end
 
--- Function to remove ESP when a player leaves or dies
-local function RemoveESP(player)
-    if ESPObjects[player] then
-        for _, obj in pairs(ESPObjects[player]) do
-            if obj then obj:Destroy() end
-        end
-        ESPObjects[player] = nil
+function RemoveESP(player)
+    if ESP_Objects[player] then
+        ESP_Objects[player].Box:Remove()
+        ESP_Objects[player].Name:Remove()
+        ESP_Objects[player] = nil
     end
 end
 
--- Main ESP Update Loop
-local function UpdateESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            CreateESP(player)
-        else
-            RemoveESP(player)
-        end
-    end
-end
-
--- Setup: monitor new characters and players
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
-        wait(1)  -- Let the character load fully
-        if ESP_ENABLED then
-            CreateESP(player)
-        end
+        wait(1)
+        CreateESPBox(player)
     end)
 end)
 
-Players.PlayerRemoving:Connect(function(player)
-    RemoveESP(player)
-end)
+Players.PlayerRemoving:Connect(RemoveESP)
 
--- Update Loop
-RunService.Heartbeat:Connect(function()
-    if ESP_ENABLED then
-        UpdateESP()
+RunService.RenderStepped:Connect(function()
+    if not ESP_Enabled then
+        for _, obj in pairs(ESP_Objects) do
+            obj.Box.Visible = false
+            obj.Name.Visible = false
+        end
+        return
+    end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if not ESP_Objects[player] then
+                CreateESPBox(player)
+            end
+
+            local character = player.Character
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local head = character:FindFirstChild("Head")
+                    local root = hrp
+
+                    local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.3, 0))
+                    local feetPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+
+                    local height = math.abs(headPos.Y - feetPos.Y)
+                    local width = height / 2
+
+                    ESP_Objects[player].Box.Size = Vector2.new(width, height)
+                    ESP_Objects[player].Box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
+                    ESP_Objects[player].Box.Visible = true
+
+                    ESP_Objects[player].Name.Text = player.Name
+                    ESP_Objects[player].Name.Position = Vector2.new(pos.X, pos.Y - height / 2 - 15)
+                    ESP_Objects[player].Name.Visible = true
+                else
+                    ESP_Objects[player].Box.Visible = false
+                    ESP_Objects[player].Name.Visible = false
+                end
+            else
+                RemoveESP(player)
+            end
+        elseif ESP_Objects[player] then
+            ESP_Objects[player].Box.Visible = false
+            ESP_Objects[player].Name.Visible = false
+        end
     end
 end)
 
-print("2D ESP Loaded Successfully.")
+print("2D Box ESP loaded successfully!")
