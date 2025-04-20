@@ -1,4 +1,5 @@
--- Eclipse-style 2D Box ESP
+-- Eclipse.wtf Style 2D Box ESP with Corner Boxes + Health Bar
+
 local ESP = {}
 
 local function Draw(type)
@@ -71,27 +72,29 @@ function ESP:New(Player)
 
                 -- Health Bar
                 if getgenv().LoadedESP.Settings.HealthBar then
-                    local hp = Humanoid.Health / Humanoid.MaxHealth
-                    local barHeight = size.Y * hp
-                    
+                    local health = Humanoid.Health / Humanoid.MaxHealth
+                    local barHeight = size.Y * health
+
                     Box.HealthBack.From = Vector2.new(topLeft.X - 6, bottomRight.Y)
                     Box.HealthBack.To = Vector2.new(topLeft.X - 6, topLeft.Y)
-                    Box.HealthBack.Color = Color3.new(0, 0, 0)
+                    Box.HealthBack.Color = Color3.new(0,0,0)
                     Box.HealthBack.Thickness = 2
                     Box.HealthBack.Visible = true
 
                     Box.HealthBar.From = Vector2.new(topLeft.X - 6, bottomRight.Y)
                     Box.HealthBar.To = Vector2.new(topLeft.X - 6, bottomRight.Y - barHeight)
-                    Box.HealthBar.Color = Color3.fromRGB(0, 255, 0)
+                    Box.HealthBar.Color = Color3.fromRGB(0,255,0)
                     Box.HealthBar.Thickness = 2
                     Box.HealthBar.Visible = true
                 else
-                    Box.HealthBar.Visible = false
                     Box.HealthBack.Visible = false
+                    Box.HealthBar.Visible = false
                 end
+
             else
                 for _,v in pairs(Box) do v.Visible = false end
             end
+
         else
             for _,v in pairs(Box) do v.Visible = false end
         end
