@@ -1,5 +1,13 @@
 -- Eclipse.wtf Style 2D Box ESP with Corner Boxes, Health Bar, Chams & Name/Distance Display
 
+getgenv().LoadedESP = getgenv().LoadedESP or {
+    Settings = {
+        MasterSwitch = false,
+        HealthBar = true,
+        ChamsVisibleOnly = false
+    }
+}
+
 local ESP = {}
 
 local function Draw(type)
