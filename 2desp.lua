@@ -1,101 +1,19 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local CoreGui = game:GetService("CoreGui")
-
 local ESP = {
     Enabled = false,
-    DrawBoxes = false,
-    MaxDistance = 200,
     Boxes = {},
     UpdateConnection = nil
 }
 
--- Create a box for a player
-function ESP:CreateBox(player)
-    if self.Boxes[player] then return end
-
-    local frame = Instance.new("Frame")
-    frame.Name = player.Name .. "_ESPBox"
-    frame.Parent = CoreGui
-    frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    frame.BackgroundTransparency = 0.75
-    frame.BorderSizePixel = 0
-    frame.Visible = false
-
-    self.Boxes[player] = frame
-end
-
--- Remove box when player leaves
-function ESP:RemoveBox(player)
-    if self.Boxes[player] then
-        self.Boxes[player]:Destroy()
-        self.Boxes[player] = nil
-    end
-end
-
--- Update loop: runs every frame
-function ESP:Update()
-    if self.UpdateConnection then self.UpdateConnection:Disconnect() end
-
-    self.UpdateConnection = RunService.RenderStepped:Connect(function()
-        if not self.Enabled then
-            for _, box in pairs(self.Boxes) do
-                if box then box.Visible = false end
-            end
-            return
-        end
-
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = player.Character.HumanoidRootPart
-                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                local distance = (Camera.CFrame.Position - hrp.Position).Magnitude
-
-                if onScreen and distance <= self.MaxDistance then
-                    self:CreateBox(player)
-
-                    local sizeY = hrp.Size.Y
-                    local scaleFactor = (sizeY * Camera.ViewportSize.Y) / (pos.Z * 2)
-                    local width = 3 * scaleFactor
-                    local height = 4.5 * scaleFactor
-
-                    local box = self.Boxes[player]
-                    box.Size = UDim2.new(0, width, 0, height)
-                    box.Position = UDim2.new(0, pos.X - width / 2, 0, pos.Y - height / 2)
-                    box.Visible = self.DrawBoxes
-                elseif self.Boxes[player] then
-                    self.Boxes[player].Visible = false
-                end
-            elseif self.Boxes[player] then
-                self.Boxes[player].Visible = false
-            end
-        end
-    end)
-end
-
--- Start ESP (handles join/leave & loop)
 function ESP:Start()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer then
-            self:CreateBox(player)
-        end
+    self.Enabled = true
+    if self.UpdateConnection then
+        self.UpdateConnection:Disconnect()
     end
-
-    Players.PlayerAdded:Connect(function(player)
-        if player ~= Players.LocalPlayer then
-            self:CreateBox(player)
-        end
+    self.UpdateConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        self:Update()
     end)
-
-    Players.PlayerRemoving:Connect(function(player)
-        self:RemoveBox(player)
-    end)
-
-    self:Update()
 end
 
--- Stop ESP and hide boxes
 function ESP:Stop()
     self.Enabled = false
     if self.UpdateConnection then
@@ -103,7 +21,34 @@ function ESP:Stop()
         self.UpdateConnection = nil
     end
     for _, box in pairs(self.Boxes) do
-        if box then box.Visible = false end
+        if box and box.Adornee then
+            box.Visible = false
+        end
     end
 end
+
+function ESP:Update()
+    if not self.Enabled then return end
+    local players = game:GetService("Players")
+    local localPlayer = players.LocalPlayer
+
+    for _, player in ipairs(players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+
+            local box = self.Boxes[player] or Instance.new("BoxHandleAdornment")
+            box.Adornee = hrp
+            box.AlwaysOnTop = true
+            box.ZIndex = 10
+            box.Size = Vector3.new(2, 5, 1)
+            box.Color3 = Color3.fromRGB(255, 0, 0)
+            box.Transparency = 0.5
+            box.Parent = game:GetService("CoreGui")
+
+            self.Boxes[player] = box
+            box.Visible = true
+        end
+    end
+end
+
 return ESP
